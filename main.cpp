@@ -222,7 +222,6 @@ int main (int, char**) {
 		command.release();
 
 		swapChain.present();
->>>>>>> c21c10a (Fix render pass release)
 	}
 
 	glfwDestroyWindow(window);
