@@ -128,9 +128,11 @@ int main (int, char**) {
 
 	// Finalize the encoding operation, synthesizing the command buffer
 	CommandBuffer command = encoder.finish(CommandBufferDescriptor{});
+	encoder.release();
 	
 	// Submit the encoded command buffer
 	queue.submit(1, &command);
+	command.release();
 
 	std::cout << "Start downloading result data from the GPU..." << std::endl;
 
@@ -180,12 +182,16 @@ int main (int, char**) {
 	glfwTerminate();
 
 	// Free GPU memory
-	surface.release();
 	buffer1.destroy();
 	buffer2.destroy();
 
 	buffer1.release();
 	buffer2.release();
+
+	device.release();
+	adapter.release();
+	instance.release();
+	surface.release();
 
 	return 0;
 }
