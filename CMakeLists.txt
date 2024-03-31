@@ -10,10 +10,21 @@ project(
 # want to keep this main file easy to read).
 include(utils.cmake)
 
+# Include webgpu directory, to define the 'webgpu' target
+add_subdirectory(webgpu)
+
 # Create the App executable target with one source file
 add_executable(App
 	main.cpp
 )
+
+# Add the 'webgpu' target as a dependency of our App
+target_link_libraries(App PRIVATE webgpu)
+
+# The application's binary must find wgpu.dll or libwgpu.so at runtime,
+# so we automatically copy it (it's called WGPU_RUNTIME_LIB in general)
+# next to the binary.
+target_copy_webgpu_binaries(App)
 
 # Use C++17
 set_target_properties(App PROPERTIES CXX_STANDARD 17)
