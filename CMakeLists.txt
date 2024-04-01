@@ -16,6 +16,8 @@ add_subdirectory(webgpu)
 # Create the App executable target with one source file
 add_executable(App
 	main.cpp
+	webgpu-utils.h
+	webgpu-utils.cpp
 )
 
 # Add the 'webgpu' target as a dependency of our App
