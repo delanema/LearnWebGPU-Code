@@ -28,6 +28,9 @@
 #include <iostream>
 #include <vector>
 #include <cassert>
+#ifdef __EMSCRIPTEN__
+#  include <emscripten.h>
+#endif // __EMSCRIPTEN__
 
 /**
  * Utility function to get a WebGPU adapter, so that
@@ -70,16 +73,19 @@ WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions 
 		(void*)&userData
 	);
 
-	// In theory we should wait until onAdapterReady has been called, which
-	// could take some time (what the 'await' keyword does in the JavaScript
-	// code). In practice, we know that when the wgpuInstanceRequestAdapter()
-	// function returns its callback has been called.
+#ifdef __EMSCRIPTEN__
+	while (!userData.requestEnded) {
+		emscripten_sleep(100);
+	}
+#endif // __EMSCRIPTEN__
+
 	assert(userData.requestEnded);
 
 	return userData.adapter;
 }
 
 void inspectAdapter(WGPUAdapter adapter) {
+#ifndef __EMSCRIPTEN__
 	// Supported Limits
 	WGPUSupportedLimits supportedLimits = {};
 	supportedLimits.nextInChain = nullptr;
@@ -91,6 +97,7 @@ void inspectAdapter(WGPUAdapter adapter) {
 		std::cout << " - maxTextureDimension3D: " << supportedLimits.limits.maxTextureDimension3D << std::endl;
 		std::cout << " - maxTextureArrayLayers: " << supportedLimits.limits.maxTextureArrayLayers << std::endl;
 	}
+#endif // NOT __EMSCRIPTEN__
 
 	// Supported Features
 	std::vector<WGPUFeatureName> features;
@@ -140,7 +147,11 @@ void inspectAdapter(WGPUAdapter adapter) {
 int main (int, char**) {
 	WGPUInstanceDescriptor desc = {};
 	desc.nextInChain = nullptr;
+#ifdef WEBGPU_BACKEND_EMSCRIPTEN
+	WGPUInstance instance = wgpuCreateInstance(nullptr);
+#else //  WEBGPU_BACKEND_EMSCRIPTEN
 	WGPUInstance instance = wgpuCreateInstance(&desc);
+#endif //  WEBGPU_BACKEND_EMSCRIPTEN
 	std::cout << "WGPU instance: " << instance << std::endl;
 
 	if (!instance) {
