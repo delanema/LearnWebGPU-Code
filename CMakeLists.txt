@@ -32,3 +32,9 @@ set_target_properties(App PROPERTIES CXX_STANDARD 17)
 # Turn all warnings on and treat them as errors so that are not
 # tempted to ignore them (See utils.cmake for details).
 target_treat_all_warnings_as_errors(App)
+
+# Options that are specific to Emscripten
+if (EMSCRIPTEN)
+	# Generate a full web page rather than a simple WebAssembly module
+	set_target_properties(App PROPERTIES SUFFIX ".html")
+endif()
