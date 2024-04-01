@@ -28,12 +28,17 @@
 #include <iostream>
 
 int main (int, char**) {
+
 	// 1. We create a descriptor
 	WGPUInstanceDescriptor desc = {};
 	desc.nextInChain = nullptr;
 
 	// 2. We create the instance using this descriptor
+#ifdef WEBGPU_BACKEND_EMSCRIPTEN
+	WGPUInstance instance = wgpuCreateInstance(nullptr);
+#else //  WEBGPU_BACKEND_EMSCRIPTEN
 	WGPUInstance instance = wgpuCreateInstance(&desc);
+#endif //  WEBGPU_BACKEND_EMSCRIPTEN
 
 	// 3. We can check whether there is actually an instance created
 	if (!instance) {
