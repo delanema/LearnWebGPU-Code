@@ -35,6 +35,10 @@
 #include <vector>
 #include <cassert>
 
+#ifdef __EMSCRIPTEN__
+#  include <emscripten.h>
+#endif // __EMSCRIPTEN__
+
 int main (int, char**) {
 	WGPUInstanceDescriptor desc = {};
 	desc.nextInChain = nullptr;
@@ -53,7 +57,11 @@ int main (int, char**) {
 	desc.nextInChain = &toggles.chain;
 #endif // WEBGPU_BACKEND_DAWN
 	
+#ifdef WEBGPU_BACKEND_EMSCRIPTEN
+	WGPUInstance instance = wgpuCreateInstance(nullptr);
+#else //  WEBGPU_BACKEND_EMSCRIPTEN
 	WGPUInstance instance = wgpuCreateInstance(&desc);
+#endif //  WEBGPU_BACKEND_EMSCRIPTEN
 	std::cout << "WGPU instance: " << instance << std::endl;
 
 	if (!instance) {
@@ -140,6 +148,8 @@ int main (int, char**) {
 		wgpuDeviceTick(device);
 #elif defined(WEBGPU_BACKEND_WGPU)
 		wgpuDevicePoll(device, false, nullptr);
+#elif defined(WEBGPU_BACKEND_EMSCRIPTEN)
+		emscripten_sleep(100);
 #endif
 	}
 

@@ -39,4 +39,7 @@ target_treat_all_warnings_as_errors(App)
 if (EMSCRIPTEN)
 	# Generate a full web page rather than a simple WebAssembly module
 	set_target_properties(App PROPERTIES SUFFIX ".html")
+
+	# Enable the use of emscripten_sleep()
+	target_link_options(App PRIVATE -sASYNCIFY)
 endif()
