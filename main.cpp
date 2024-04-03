@@ -31,6 +31,8 @@
 #  include <webgpu/wgpu.h>
 #endif // WEBGPU_BACKEND_WGPU
 
+#include <GLFW/glfw3.h>
+
 #include <iostream>
 #include <vector>
 #include <cassert>
@@ -39,7 +41,62 @@
 #  include <emscripten.h>
 #endif // __EMSCRIPTEN__
 
+/**
+ * Main application class, that holds the whole app state and regroups
+ * init/main loop/terminate functions.
+ */
+class Application {
+public:
+	// Initialize everything and return true if it went all right
+	bool Initialize();
+
+	// Uninitialize everything that was initialized
+	void Terminate();
+
+	// Draw a frame and handle events
+	void MainLoop();
+
+	// Return true as long as the main loop should keep on running
+	bool IsRunning();
+
+private:
+	// We put here all the variables that are shared between init and main loop
+	GLFWwindow *window;
+	WGPUDevice device;
+	WGPUQueue queue;
+};
+
 int main (int, char**) {
+	Application app;
+
+	if (!app.Initialize()) {
+		return 1;
+	}
+
+	// Warning: this is still not Emscripten-friendly
+	while (app.IsRunning()) {
+		app.MainLoop();
+	}
+
+	return 0;
+}
+
+bool Application::Initialize() {
+	glfwInit();
+
+	if (!glfwInit()) {
+		std::cerr << "Could not initialize GLFW!" << std::endl;
+		return 1;
+	}
+
+	window = glfwCreateWindow(640, 480, "Learn WebGPU", NULL, NULL);
+
+	if (!window) {
+		std::cerr << "Could not open window!" << std::endl;
+		glfwTerminate();
+		return 1;
+	}
+
 	WGPUInstanceDescriptor desc = {};
 	desc.nextInChain = nullptr;
 
@@ -56,7 +113,7 @@ int main (int, char**) {
 
 	desc.nextInChain = &toggles.chain;
 #endif // WEBGPU_BACKEND_DAWN
-	
+
 #ifdef WEBGPU_BACKEND_EMSCRIPTEN
 	WGPUInstance instance = wgpuCreateInstance(nullptr);
 #else //  WEBGPU_BACKEND_EMSCRIPTEN
@@ -74,6 +131,7 @@ int main (int, char**) {
 	WGPURequestAdapterOptions adapterOpts = {};
 	adapterOpts.nextInChain = nullptr;
 	WGPUAdapter adapter = requestAdapterSync(instance, &adapterOpts);
+	wgpuInstanceRelease(instance);
 
 	std::cout << "Got adapter: " << adapter << std::endl;
 
@@ -94,9 +152,9 @@ int main (int, char**) {
 		std::cout << "Device lost: reason " << reason;
 		if (message) std::cout << " (" << message << ")";
 		std::cout << std::endl;
-	};
+		};
 
-	WGPUDevice device = requestDeviceSync(adapter, &deviceDesc);
+	device = requestDeviceSync(adapter, &deviceDesc);
 
 	std::cout << "Got device: " << device << std::endl;
 	wgpuAdapterRelease(adapter);
@@ -107,16 +165,16 @@ int main (int, char**) {
 		std::cout << "Uncaptured device error: type " << type;
 		if (message) std::cout << " (" << message << ")";
 		std::cout << std::endl;
-	};
+		};
 	wgpuDeviceSetUncapturedErrorCallback(device, onDeviceError, nullptr /* pUserData */);
 
 	// We get the queue to send data and commands to the GPU.
-	WGPUQueue queue = wgpuDeviceGetQueue(device);
+	queue = wgpuDeviceGetQueue(device);
 
 	// We set up a callback to be executed once all queued work is done.
 	auto onQueueWorkDone = [](WGPUQueueWorkDoneStatus status, void* /* pUserData */) {
 		std::cout << "Queued work finished with status: " << status << std::endl;
-	};
+		};
 	wgpuQueueOnSubmittedWorkDone(queue, onQueueWorkDone, nullptr /* pUserData */);
 
 	// Create a command encoder, that will then build the command buffer
@@ -142,20 +200,29 @@ int main (int, char**) {
 	wgpuCommandBufferRelease(command);
 	std::cout << "Command submitted." << std::endl;
 
-	for (int i = 0; i < 5; ++i) {
-		std::cout << "Tick/Poll device..." << std::endl;
-#if defined(WEBGPU_BACKEND_DAWN)
-		wgpuDeviceTick(device);
-#elif defined(WEBGPU_BACKEND_WGPU)
-		wgpuDevicePoll(device, false, nullptr);
-#elif defined(WEBGPU_BACKEND_EMSCRIPTEN)
-		emscripten_sleep(100);
-#endif
-	}
-
-	wgpuQueueRelease(queue);
-	wgpuDeviceRelease(device);
-	wgpuInstanceRelease(instance);
-	return 0;
+	return true;
 }
 
+void Application::Terminate() {
+	wgpuQueueRelease(queue);
+	wgpuDeviceRelease(device);
+	glfwDestroyWindow(window);
+	glfwTerminate();
+}
+
+void Application::MainLoop() {
+	// Check whether the user clicked on the close button (and any other
+	// mouse/key event, which we don't use so far)
+	glfwPollEvents();
+
+	// Also move here the tick/poll but NOT the emscripten sleep
+#if defined(WEBGPU_BACKEND_DAWN)
+	wgpuDeviceTick(device);
+#elif defined(WEBGPU_BACKEND_WGPU)
+	wgpuDevicePoll(device, false, nullptr);
+#endif
+}
+
+bool Application::IsRunning() {
+	return !glfwWindowShouldClose(window);
+}

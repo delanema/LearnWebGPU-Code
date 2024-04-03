@@ -10,6 +10,11 @@ project(
 # want to keep this main file easy to read).
 include(utils.cmake)
 
+# Include glfw directory, to define the 'glfw' target
+if (NOT EMSCRIPTEN)
+    add_subdirectory(glfw)
+endif()
+
 # Include webgpu directory, to define the 'webgpu' target
 add_subdirectory(webgpu)
 
@@ -21,7 +26,7 @@ add_executable(App
 )
 
 # Add the 'webgpu' target as a dependency of our App
-target_link_libraries(App PRIVATE webgpu)
+target_link_libraries(App PRIVATE webgpu glfw)
 
 # The application's binary must find wgpu.dll or libwgpu.so at runtime,
 # so we automatically copy it (it's called WGPU_RUNTIME_LIB in general)
