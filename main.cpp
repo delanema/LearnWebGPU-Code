@@ -26,6 +26,8 @@
 
 #include "webgpu-utils.h"
 
+#include <glfw3webgpu.h>
+
 #include <webgpu/webgpu.h>
 #ifdef WEBGPU_BACKEND_WGPU
 #  include <webgpu/wgpu.h>
@@ -62,6 +64,7 @@ public:
 private:
 	// We put here all the variables that are shared between init and main loop
 	GLFWwindow *window;
+	WGPUSurface surface;
 	WGPUDevice device;
 	WGPUQueue queue;
 };
@@ -95,7 +98,9 @@ bool Application::Initialize() {
 		return 1;
 	}
 
-	window = glfwCreateWindow(640, 480, "Learn WebGPU", NULL, NULL);
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	window = glfwCreateWindow(640, 480, "Learn WebGPU", nullptr, nullptr);
 
 	if (!window) {
 		std::cerr << "Could not open window!" << std::endl;
@@ -134,10 +139,16 @@ bool Application::Initialize() {
 		return 1;
 	}
 
+	std::cout << "Getting surface..." << std::endl;
+	surface = glfwGetWGPUSurface(instance, window);
+	std::cout << "WGPU surface: " << surface << std::endl;
+
 	std::cout << "Requesting adapter..." << std::endl;
 
 	WGPURequestAdapterOptions adapterOpts = {};
 	adapterOpts.nextInChain = nullptr;
+	adapterOpts.compatibleSurface = surface;
+	//                              ^^^^^^^ Use the surface here
 	WGPUAdapter adapter = requestAdapterSync(instance, &adapterOpts);
 	wgpuInstanceRelease(instance);
 
@@ -160,7 +171,7 @@ bool Application::Initialize() {
 		std::cout << "Device lost: reason " << reason;
 		if (message) std::cout << " (" << message << ")";
 		std::cout << std::endl;
-		};
+	};
 
 	device = requestDeviceSync(adapter, &deviceDesc);
 
@@ -173,7 +184,7 @@ bool Application::Initialize() {
 		std::cout << "Uncaptured device error: type " << type;
 		if (message) std::cout << " (" << message << ")";
 		std::cout << std::endl;
-		};
+	};
 	wgpuDeviceSetUncapturedErrorCallback(device, onDeviceError, nullptr /* pUserData */);
 
 	// We get the queue to send data and commands to the GPU.
@@ -182,7 +193,7 @@ bool Application::Initialize() {
 	// We set up a callback to be executed once all queued work is done.
 	auto onQueueWorkDone = [](WGPUQueueWorkDoneStatus status, void* /* pUserData */) {
 		std::cout << "Queued work finished with status: " << status << std::endl;
-		};
+	};
 	wgpuQueueOnSubmittedWorkDone(queue, onQueueWorkDone, nullptr /* pUserData */);
 
 	// Create a command encoder, that will then build the command buffer
@@ -214,6 +225,7 @@ bool Application::Initialize() {
 void Application::Terminate() {
 	wgpuQueueRelease(queue);
 	wgpuDeviceRelease(device);
+	wgpuSurfaceRelease(surface);
 	glfwDestroyWindow(window);
 	glfwTerminate();
 }
