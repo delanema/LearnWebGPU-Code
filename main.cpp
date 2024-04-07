@@ -76,6 +76,7 @@ int main (int, char**) {
 	WGPUAdapter adapter = requestAdapterSync(instance, &adapterOpts);
 
 	std::cout << "Got adapter: " << adapter << std::endl;
+	wgpuInstanceRelease(instance);
 
 	inspectAdapter(adapter);
 
@@ -155,7 +156,6 @@ int main (int, char**) {
 
 	wgpuQueueRelease(queue);
 	wgpuDeviceRelease(device);
-	wgpuInstanceRelease(instance);
 	return 0;
 }
 
