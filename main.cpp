@@ -167,10 +167,14 @@ int main (int, char**) {
 
 	std::cout << "Got adapter: " << adapter << std::endl;
 
+	// We can already release the instance since we no longer need to use it
+	// explicitly (the underlying instance will keep existing until the
+	// underlying adapter gets destroyed).
+	wgpuInstanceRelease(instance);
+
 	inspectAdapter(adapter);
 
 	wgpuAdapterRelease(adapter);
-	wgpuInstanceRelease(instance);
 	return 0;
 }
 
