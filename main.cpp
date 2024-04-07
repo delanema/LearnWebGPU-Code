@@ -65,7 +65,7 @@ int main (int, char**) {
 	std::cout << "Requesting device..." << std::endl;
 	DeviceDescriptor deviceDesc;
 	deviceDesc.label = "My Device";
-	deviceDesc.requiredFeaturesCount = 0;
+	deviceDesc.requiredFeatureCount = 0;
 	deviceDesc.requiredLimits = nullptr;
 	deviceDesc.defaultQueue.label = "The default queue";
 	Device device = adapter.requestDevice(deviceDesc);
@@ -80,12 +80,14 @@ int main (int, char**) {
 
 	Queue queue = device.getQueue();
 
-	std::cout << "Creating swapchain..." << std::endl;
 #ifdef WEBGPU_BACKEND_WGPU
 	TextureFormat swapChainFormat = surface.getPreferredFormat(adapter);
 #else
 	TextureFormat swapChainFormat = TextureFormat::BGRA8Unorm;
 #endif
+
+#ifdef WEBGPU_BACKEND_DAWN
+	std::cout << "Creating swapchain..." << std::endl;
 	SwapChainDescriptor swapChainDesc;
 	swapChainDesc.width = 640;
 	swapChainDesc.height = 480;
@@ -94,6 +96,18 @@ int main (int, char**) {
 	swapChainDesc.presentMode = PresentMode::Fifo;
 	SwapChain swapChain = device.createSwapChain(surface, swapChainDesc);
 	std::cout << "Swapchain: " << swapChain << std::endl;
+#else // WEBGPU_BACKEND_DAWN
+	std::cout << "Configuring surface..." << std::endl;
+	SurfaceConfiguration config;
+	config.device = device;
+	config.width = 640;
+	config.height = 480;
+	config.usage = TextureUsage::RenderAttachment;
+	config.format = swapChainFormat;
+	config.presentMode = PresentMode::Fifo;
+	config.alphaMode = CompositeAlphaMode::Auto;
+	surface.configure(config);
+#endif // WEBGPU_BACKEND_DAWN
 
 	std::cout << "Creating shader module..." << std::endl;
 	const char* shaderSource = R"(
@@ -214,8 +228,24 @@ fn fs_main() -> @location(0) vec4f {
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
-		TextureView nextTexture = swapChain.getCurrentTextureView();
-		if (!nextTexture) {
+#ifdef WEBGPU_BACKEND_DAWN
+		TextureView nextTextureView = swapChain.getCurrentTextureView();
+#else // WEBGPU_BACKEND_DAWN
+		SurfaceTexture surfaceTexture;
+		surface.getCurrentTexture(&surfaceTexture);
+		Texture nextTexture = surfaceTexture.texture;
+		TextureViewDescriptor viewDesc = Default;
+		viewDesc.aspect = TextureAspect::All;
+		viewDesc.format = swapChainFormat;
+		viewDesc.dimension = TextureViewDimension::_2D;
+		viewDesc.baseMipLevel = 0;
+		viewDesc.mipLevelCount = 1;
+		viewDesc.baseArrayLayer = 0;
+		viewDesc.arrayLayerCount = 1;
+		TextureView nextTextureView = nextTexture.createView(viewDesc);
+#endif // WEBGPU_BACKEND_DAWN
+
+		if (!nextTextureView) {
 			std::cerr << "Cannot acquire next swap chain texture" << std::endl;
 			return 1;
 		}
@@ -227,16 +257,16 @@ fn fs_main() -> @location(0) vec4f {
 		RenderPassDescriptor renderPassDesc;
 
 		RenderPassColorAttachment renderPassColorAttachment;
-		renderPassColorAttachment.view = nextTexture;
+		renderPassColorAttachment.view = nextTextureView;
 		renderPassColorAttachment.resolveTarget = nullptr;
 		renderPassColorAttachment.loadOp = LoadOp::Clear;
 		renderPassColorAttachment.storeOp = StoreOp::Store;
 		renderPassColorAttachment.clearValue = Color{ 0.9, 0.1, 0.2, 1.0 };
+		renderPassColorAttachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
 		renderPassDesc.colorAttachmentCount = 1;
 		renderPassDesc.colorAttachments = &renderPassColorAttachment;
 
 		renderPassDesc.depthStencilAttachment = nullptr;
-		renderPassDesc.timestampWriteCount = 0;
 		renderPassDesc.timestampWrites = nullptr;
 		RenderPassEncoder renderPass = encoder.beginRenderPass(renderPassDesc);
 
@@ -249,7 +279,7 @@ fn fs_main() -> @location(0) vec4f {
 		renderPass.end();
 		renderPass.release();
 		
-		nextTexture.release();
+		nextTextureView.release();
 
 		CommandBufferDescriptor cmdBufferDescriptor;
 		cmdBufferDescriptor.label = "Command buffer";
@@ -258,12 +288,21 @@ fn fs_main() -> @location(0) vec4f {
 		queue.submit(command);
 		command.release();
 
+#ifdef WEBGPU_BACKEND_DAWN
 		swapChain.present();
+#else // WEBGPU_BACKEND_DAWN
+		surface.present();
+		nextTexture.release();
+#endif // WEBGPU_BACKEND_DAWN
 	}
 
 	pipeline.release();
 	shaderModule.release();
+#ifdef WEBGPU_BACKEND_DAWN
 	swapChain.release();
+#else // WEBGPU_BACKEND_DAWN
+	surface.unconfigure();
+#endif // WEBGPU_BACKEND_DAWN
 	device.release();
 	adapter.release();
 	instance.release();
