@@ -69,6 +69,11 @@ int main (int, char**) {
 
 	std::cout << "Got adapter: " << adapter << std::endl;
 
+	// We can already release the instance since we no longer need to use it
+	// explicitly (the underlying instance will keep existing until the
+	// underlying adapter gets destroyed).
+	wgpuInstanceRelease(instance);
+
 	inspectAdapter(adapter);
 
 	std::cout << "Requesting device..." << std::endl;
@@ -91,6 +96,10 @@ int main (int, char**) {
 	WGPUDevice device = requestDeviceSync(adapter, &deviceDesc);
 
 	std::cout << "Got device: " << device << std::endl;
+
+	// We can already release the adapter since we no longer need to use it
+	// explicitly (the underlying adapter will keep existing until the
+	// underlying device gets destroyed).
 	wgpuAdapterRelease(adapter);
 
 	inspectDevice(device);
@@ -103,7 +112,6 @@ int main (int, char**) {
 	wgpuDeviceSetUncapturedErrorCallback(device, onDeviceError, nullptr /* pUserData */);
 
 	wgpuDeviceRelease(device);
-	wgpuInstanceRelease(instance);
 	return 0;
 }
 
