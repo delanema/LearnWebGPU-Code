@@ -13,6 +13,10 @@ include(utils.cmake)
 # Include glfw directory, to define the 'glfw' target
 if (NOT EMSCRIPTEN)
     add_subdirectory(glfw)
+else()
+	# Emscripten has built-in support for GLFW but requires the `-sUSE_GLFW=3` link option:
+	add_library(glfw INTERFACE)
+	target_link_options(glfw INTERFACE -sUSE_GLFW=3)
 endif()
 
 # Include webgpu directory, to define the 'webgpu' target

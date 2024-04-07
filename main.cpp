@@ -73,16 +73,22 @@ int main (int, char**) {
 		return 1;
 	}
 
-	// Warning: this is still not Emscripten-friendly
+#ifdef __EMSCRIPTEN__
+	emscripten_set_main_loop_arg([](void *arg) {
+		Application* pApp = reinterpret_cast<Application*>(arg);
+		pApp->MainLoop();
+	}, &app, 0, true);
+#else // __EMSCRIPTEN__
 	while (app.IsRunning()) {
 		app.MainLoop();
 	}
+#endif // __EMSCRIPTEN__
 
 	return 0;
 }
 
 bool Application::Initialize() {
-	glfwInit();
+	std::cout << "Openning window..." << std::endl;
 
 	if (!glfwInit()) {
 		std::cerr << "Could not initialize GLFW!" << std::endl;
@@ -96,6 +102,8 @@ bool Application::Initialize() {
 		glfwTerminate();
 		return 1;
 	}
+
+	std::cout << "GLFW window: " << window << std::endl;
 
 	WGPUInstanceDescriptor desc = {};
 	desc.nextInChain = nullptr;
